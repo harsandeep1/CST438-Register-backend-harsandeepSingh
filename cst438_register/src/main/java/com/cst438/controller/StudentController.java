@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 package com.cst438.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,6 +97,8 @@ public class StudentController {
 		}
 	}
 =======
+=======
+>>>>>>> Stashed changes
 package com.cst438.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -192,5 +195,8 @@ public class StudentController {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student does not exist.");
 		}
 	}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }

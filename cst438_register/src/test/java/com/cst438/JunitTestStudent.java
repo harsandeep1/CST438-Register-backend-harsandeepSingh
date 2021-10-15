@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 package com.cst438;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -224,6 +225,8 @@ public class JunitTestStudent {
 		}
 	}
 =======
+=======
+>>>>>>> Stashed changes
 package com.cst438;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -448,5 +451,8 @@ public class JunitTestStudent {
 			throw new RuntimeException(e);
 		}
 	}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 }
