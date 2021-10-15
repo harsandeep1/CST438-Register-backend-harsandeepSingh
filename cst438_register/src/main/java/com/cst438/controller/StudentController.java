@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 package com.cst438.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,8 @@ public class StudentController {
 =======
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 package com.cst438.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -196,6 +199,9 @@ public class StudentController {
 		}
 	}
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
