@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-
 import com.cst438.domain.Course;
 import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
@@ -24,10 +25,10 @@ import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.ScheduleDTO;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentRepository;
-import com.cst438.service.GradebookService;
+//import com.cst438.service.GradebookService;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {"http://localhost:3000", "https://cst438-register-fe-singh.herokuapp.com/"})
 public class ScheduleController {
 	
 	
@@ -40,19 +41,22 @@ public class ScheduleController {
 	@Autowired
 	EnrollmentRepository enrollmentRepository;
 	
-	@Autowired
-	GradebookService gradebookService;
+//	@Autowired
+//	GradebookService gradebookService;
 	
 	
 	/*
 	 * get current schedule for student.
 	 */
 	@GetMapping("/schedule")
-	public ScheduleDTO getSchedule( @RequestParam("year") int year, @RequestParam("semester") String semester ) {
+	public ScheduleDTO getSchedule( @RequestParam("year") int year, @RequestParam("semester") String semester, @AuthenticationPrincipal OAuth2User principal ) {
+		String student_email = principal.getAttribute("email"); // student's email
+		Student student = null;
+		if(isStudent(student_email))
+			student = studentRepository.findByEmail(student_email);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
 		
-		String student_email = "test@csumb.edu";   // student's email 
-		
-		Student student = studentRepository.findByEmail(student_email);
 		if (student != null) {
 			List<Enrollment> enrollments = enrollmentRepository.findStudentSchedule(student_email, year, semester);
 			ScheduleDTO sched = createSchedule(year, semester, student, enrollments);
@@ -62,16 +66,20 @@ public class ScheduleController {
 		}
 	}
 	
+
 	
 	@PostMapping("/schedule")
 	@Transactional
-	public ScheduleDTO.CourseDTO addCourse( @RequestBody ScheduleDTO.CourseDTO courseDTO  ) { 
-		
-		String student_email = "test@csumb.edu";   // student's email 
-		
-		Student student = studentRepository.findByEmail(student_email);
-		Course course  = courseRepository.findByCourse_id(courseDTO.course_id);
-		
+	public ScheduleDTO.CourseDTO addCourse( @RequestBody ScheduleDTO.CourseDTO courseDTO ,@AuthenticationPrincipal OAuth2User principal ) { 
+		String student_email = principal.getAttribute("email");   // student's email 
+		Student student = null;
+		Course course = null;
+		if(isStudent(student_email)) {
+			student = studentRepository.findByEmail(student_email);
+			course  = courseRepository.findByCourse_id(courseDTO.course_id);
+		}
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
 		// student.status
 		// = 0  ok to register
 		// != 0 hold on registration.  student.status may have reason for hold.
@@ -85,7 +93,8 @@ public class ScheduleController {
 			enrollment.setSemester(course.getSemester());
 			Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
 			
-			gradebookService.enrollStudent(student_email, student.getName(), course.getCourse_id());
+			//Used for integration with gradebook service
+			//gradebookService.enrollStudent(student_email, student.getName(), course.getCourse_id());
 			
 			ScheduleDTO.CourseDTO result = createCourseDTO(savedEnrollment);
 			return result;
@@ -97,14 +106,15 @@ public class ScheduleController {
 	
 	@DeleteMapping("/schedule/{enrollment_id}")
 	@Transactional
-	public void dropCourse(  @PathVariable int enrollment_id  ) {
+	public void dropCourse(  @PathVariable int enrollment_id, @AuthenticationPrincipal OAuth2User principal) {
 		
-		String student_email = "test@csumb.edu";   // student's email 
-		
+		String student_email = principal.getAttribute("email");   // student's email 
+		Enrollment enrollment = null;
 		// TODO  check that today's date is not past deadline to drop course.
-		
-		Enrollment enrollment = enrollmentRepository.findById(enrollment_id);
-		
+		if(isStudent(student_email))
+			enrollment = enrollmentRepository.findById(enrollment_id);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
 		// verify that student is enrolled in the course.
 		if (enrollment!=null && enrollment.getStudent().getEmail().equals(student_email)) {
 			// OK.  drop the course.
@@ -151,6 +161,13 @@ public class ScheduleController {
 		courseDTO.title = c.getTitle();
 		courseDTO.grade = e.getCourseGrade();
 		return courseDTO;
+	}
+	
+	private boolean isStudent(String email) {
+		if(studentRepository.findByEmail(email) == null)
+			return false;
+		else
+			return true;
 	}
 	
 }

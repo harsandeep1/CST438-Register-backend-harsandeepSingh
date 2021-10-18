@@ -6,25 +6,24 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
 @Entity
-public class Student {
+public class Admin {
+	
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private int student_id;
+	private int admin_id;
 	private String name;
 	private String email;
-	private int statusCode;
-	private String status;
 	
-	public Student() {
+	public Admin() {
 		super();
 	}
 	
 	public int getStudent_id() {
-		return student_id;
+		return admin_id;
 	}
 	public void setStudent_id(int student_id) {
-		this.student_id = student_id;
+		this.admin_id = student_id;
 	}
 	public String getName() {
 		return name;
@@ -38,22 +37,12 @@ public class Student {
 	public void setEmail(String email) {
 		this.email = email;
 	}
-	public int getStatusCode() {
-		return statusCode;
-	}
-	public void setStatusCode(int statusCode) {
-		this.statusCode = statusCode;
-	}
-	public String getStatus() {
-		return status;
-	}
-	public void setStatus(String status) {
-		this.status = status;
-	}
+
 	@Override
 	public String toString() {
-		return "Student [student_id=" + student_id + ", name=" + name + ", email=" + email + ", statusCode="
-				+ statusCode + ", status=" + status + "]";
+		return "Admin [admin_id=" + admin_id + ", name=" + name + ", email=" + email + "]";
 	}
+	
+	
 
 }

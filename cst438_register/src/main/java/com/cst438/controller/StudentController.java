@@ -1,115 +1,130 @@
 package com.cst438.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.cst438.domain.Enrollment;
-import com.cst438.domain.ScheduleDTO;
+import com.cst438.domain.AdminRepository;
+import com.cst438.domain.CourseRepository;
+import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentRepository;
+//import com.cst438.service.GradebookService;
+import com.cst438.domain.StudentDTO;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {"http://localhost:3000"})
 public class StudentController {
+	
+	
+	@Autowired
+	CourseRepository courseRepository;
 	
 	@Autowired
 	StudentRepository studentRepository;
 	
+	@Autowired
+	EnrollmentRepository enrollmentRepository;
+	
+	@Autowired
+	AdminRepository adminRepository;
+	
+//	@Autowired
+//	GradebookService gradebookService;
+	
+	
 	/*
-	 * get current schedule for student.
+	 * get student by email schedule for student.
 	 */
 	@GetMapping("/student")
-	public Student getStudent( @RequestParam("name") String name, @RequestParam("email") String email) {
+	public StudentDTO getStudent( @RequestParam("email") String email, @AuthenticationPrincipal OAuth2User principal){
+		Student student = null;
+		if(isAdmin(principal.getAttribute("email")))
+			student = studentRepository.findByEmail(email);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
 		
-		//String email = "test@csumb.edu";   // student's email 
-		
-		Student student = studentRepository.findByEmail(email);
 		if (student != null) {
-			student = addStudent(name, email);
-			return student;
+			StudentDTO sched = createStudentDTO(student);
+			return sched;
 		} else {
 			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student not found. " );
 		}
 	}
+
 	
-	// Add student, if the email doesn’t already exist in the system
 	@PostMapping("/student")
 	@Transactional
-	public Student addStudent( @RequestParam("name") String name, @RequestParam("email") String email) {
-
-		// Check if the student exists
-		// This has to be null in order for Junit to run successfully. 
-		//Student student = studentRepository.findByEmail(email);
+	public StudentDTO addStudent( @RequestBody StudentDTO studentDTO, @AuthenticationPrincipal OAuth2User principal) { 
 		Student student = null;
-		
-		student = new Student();
-		student.setEmail(email);
-		student.setName(name);
-		
-		studentRepository.save(student);
-		
-		student = studentRepository.findByEmail(email);
-		
-		if (student != null) {
-			return student;
+		if(isAdmin(principal.getAttribute("email")))
+			student = studentRepository.findByEmail(studentDTO.email);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
+		if(student == null) {
+			student = new Student();
+			student.setEmail(studentDTO.email);
+			student.setName(studentDTO.name);
+			Student student_with_key = studentRepository.save(student);
+			studentDTO.student_id = student_with_key.getStudent_id();
+			return studentDTO;
 		} else {
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Failed to add student." );
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST);
 		}
+		
 	}
 	
-	//Put student registration on hold for a student
-	@PostMapping("/student/addhold")
+	@PutMapping("/student/{email}")
 	@Transactional
-	public Student addHold( @RequestParam("email") String email) {
-		
-		// Check if the student exists
-		Student student = studentRepository.findByEmail(email);
-		
-		if (student != null) {
-			student.setStatusCode(1); //addhold
-			student.setStatus("On Hold"); //hardcoding generic status for now
-			
+	public StudentDTO addAndRemoveHold(  @PathVariable String email, @RequestParam("status_code") int status_code, @AuthenticationPrincipal OAuth2User principal  ) { 
+		Student student = null;
+		if(isAdmin(principal.getAttribute("email"))) {
 			student = studentRepository.findByEmail(email);
-			if (student.getStatusCode() == 1) {
-				return student;
-			} else {
-				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Failed to add hold." );
-			}
-		} else {
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student does not exist." );
+			student.setStatusCode(status_code);
 		}
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
+		
+		return  createStudentDTO(student);
+
 	}
 	
-	//Put student registration on hold for a student
-	@PostMapping("/student/removehold")
-	@Transactional
-	public Student removeHold( @RequestParam("email") String email) {
-		
-		// Check if the student exists
-		Student student = studentRepository.findByEmail(email);
-		
-		if (student != null) {
-			student.setStatusCode(0); //removehold
-			student.setStatus(null); //setting to null for now
-			
-			student = studentRepository.findByEmail(email);
-			
-			if (student.getStatusCode() == 0) {
-				return student;
-			} else {
-				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Failed to remove hold." );
-			}
-		} else {
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student does not exist." );
-		}
+	
+	/* 
+	 * helper method to transform course, enrollment, student entities into 
+	 * a an instance of ScheduleDTO to return to front end.
+	 * This makes the front end less dependent on the details of the database.
+	 */
+	
+	private StudentDTO createStudentDTO(Student s)
+	{
+		StudentDTO result = new StudentDTO();
+		result.student_id = s.getStudent_id();
+		result.email = s.getEmail();
+		result.status_code = s.getStatusCode();
+		result.status = s.getStatus();
+		result.name = s.getName();
+		return result;
 	}
+	private boolean isAdmin(String email) {
+		if(adminRepository.findByEmail(email) == null)
+			return false;
+		else
+			return true;
+	}
+	
 }
