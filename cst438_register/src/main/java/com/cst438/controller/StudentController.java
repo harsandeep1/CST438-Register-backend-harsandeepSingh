@@ -1,208 +1,130 @@
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 package com.cst438.controller;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.cst438.domain.AdminRepository;
+import com.cst438.domain.CourseRepository;
+import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentRepository;
+//import com.cst438.service.GradebookService;
+import com.cst438.domain.StudentDTO;
 
 @RestController
-@CrossOrigin(origins = {"http://localhost:3000", "https://cst438-register-fe-singh.herokuapp.com/"})
+@CrossOrigin(origins = {"http://localhost:3000"})
 public class StudentController {
+	
+	
+	@Autowired
+	CourseRepository courseRepository;
+	
 	@Autowired
 	StudentRepository studentRepository;
 	
-	// Add student
-	@PostMapping("/student")
-	@Transactional
-	public Student addStudent(@RequestParam("name")String name,@RequestParam("email")String email) {
-		//Check if student previously exists
-		Student student = null;
-		
-		if(student == null) {
-			student = new Student();
-			student.setEmail(email);
-			student.setName(name);
-			
-			studentRepository.save(student);
-			
-			student = studentRepository.findByEmail(email);
-			
-			if(student != null) {	
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to add student.");
-			}
-		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student exists.");
-		}
-	}
-	//Place hold
-	@PostMapping("/student/placeHold")
-	@Transactional
-	public Student placeHold(@RequestParam("email")String email) {
-		//Check for existing students
-		Student student = studentRepository.findByEmail(email);
-		
-		if(student != null) {
-			//Place hold
-			student.setStatusCode(1);
-			student.setStatus("On Hold");
-			
-			student = studentRepository.findByEmail(email);
-			if(student.getStatusCode() == 1) {
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to add hold.");
-			}
-		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student does not exist.");
-		}
-	}
-	//Remove hold
-	@PostMapping("/student/removeHold")
-	@Transactional
-	public Student removeHold(@RequestParam("email")String email) {
-		//Check for existing students
-		Student student = studentRepository.findByEmail(email);
-		
-		if(student != null) {
-			//Remove hold placed
-			student.setStatusCode(0);
-			student.setStatus(null);
-			
-			student = studentRepository.findByEmail(email);
-			
-			if(student.getStatusCode() == 0) {
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to remove hold.");
-			}
-		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student does not exist.");
-		}
-	}
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-package com.cst438.controller;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.cst438.domain.Student;
-import com.cst438.domain.StudentRepository;
-
-@RestController
-@CrossOrigin(origins = {"http://localhost:3000", "https://cst438-register-fe-singh.herokuapp.com/"})
-public class StudentController {
 	@Autowired
-	StudentRepository studentRepository;
+	EnrollmentRepository enrollmentRepository;
 	
-	// Add student
+	@Autowired
+	AdminRepository adminRepository;
+	
+//	@Autowired
+//	GradebookService gradebookService;
+	
+	
+	/*
+	 * get student by email schedule for student.
+	 */
+	@GetMapping("/student")
+	public StudentDTO getStudent( @RequestParam("email") String email, @AuthenticationPrincipal OAuth2User principal){
+		Student student = null;
+		if(isAdmin(principal.getAttribute("email")))
+			student = studentRepository.findByEmail(email);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
+		
+		if (student != null) {
+			StudentDTO sched = createStudentDTO(student);
+			return sched;
+		} else {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Student not found. " );
+		}
+	}
+
+	
 	@PostMapping("/student")
 	@Transactional
-	public Student addStudent(@RequestParam("name")String name,@RequestParam("email")String email) {
-		//Check if student previously exists
+	public StudentDTO addStudent( @RequestBody StudentDTO studentDTO, @AuthenticationPrincipal OAuth2User principal) { 
 		Student student = null;
-		
+		if(isAdmin(principal.getAttribute("email")))
+			student = studentRepository.findByEmail(studentDTO.email);
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
 		if(student == null) {
 			student = new Student();
-			student.setEmail(email);
-			student.setName(name);
-			
-			studentRepository.save(student);
-			
-			student = studentRepository.findByEmail(email);
-			
-			if(student != null) {	
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to add student.");
-			}
+			student.setEmail(studentDTO.email);
+			student.setName(studentDTO.name);
+			Student student_with_key = studentRepository.save(student);
+			studentDTO.student_id = student_with_key.getStudent_id();
+			return studentDTO;
+		} else {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST);
 		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student exists.");
-		}
-	}
-	//Place hold
-	@PostMapping("/student/placeHold")
-	@Transactional
-	public Student placeHold(@RequestParam("email")String email) {
-		//Check for existing students
-		Student student = studentRepository.findByEmail(email);
 		
-		if(student != null) {
-			//Place hold
-			student.setStatusCode(1);
-			student.setStatus("On Hold");
-			
-			student = studentRepository.findByEmail(email);
-			if(student.getStatusCode() == 1) {
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to add hold.");
-			}
-		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student does not exist.");
-		}
 	}
-	//Remove hold
-	@PostMapping("/student/removeHold")
+	
+	@PutMapping("/student/{email}")
 	@Transactional
-	public Student removeHold(@RequestParam("email")String email) {
-		//Check for existing students
-		Student student = studentRepository.findByEmail(email);
-		
-		if(student != null) {
-			//Remove hold placed
-			student.setStatusCode(0);
-			student.setStatus(null);
-			
+	public StudentDTO addAndRemoveHold(  @PathVariable String email, @RequestParam("status_code") int status_code, @AuthenticationPrincipal OAuth2User principal  ) { 
+		Student student = null;
+		if(isAdmin(principal.getAttribute("email"))) {
 			student = studentRepository.findByEmail(email);
-			
-			if(student.getStatusCode() == 0) {
-				return student;
-			}
-			else {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unable to remove hold.");
-			}
+			student.setStatusCode(status_code);
 		}
-		else {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Student does not exist.");
-		}
+		else
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Permissions");
+		
+		return  createStudentDTO(student);
+
 	}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+	
+	
+	/* 
+	 * helper method to transform course, enrollment, student entities into 
+	 * a an instance of ScheduleDTO to return to front end.
+	 * This makes the front end less dependent on the details of the database.
+	 */
+	
+	private StudentDTO createStudentDTO(Student s)
+	{
+		StudentDTO result = new StudentDTO();
+		result.student_id = s.getStudent_id();
+		result.email = s.getEmail();
+		result.status_code = s.getStatusCode();
+		result.status = s.getStatus();
+		result.name = s.getName();
+		return result;
+	}
+	private boolean isAdmin(String email) {
+		if(adminRepository.findByEmail(email) == null)
+			return false;
+		else
+			return true;
+	}
+	
 }
